@@ -1,5 +1,6 @@
 """3-stage LLM Council orchestration."""
 
+import time
 from typing import List, Dict, Any, Tuple
 from .openrouter import query_models_parallel, query_model
 from .config import COUNCIL_MODELS, CHAIRMAN_MODEL
@@ -17,8 +18,15 @@ async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
     """
     messages = [{"role": "user", "content": user_query}]
 
+    print(f"[Council] === STAGE 1: Querying {len(COUNCIL_MODELS)} models in parallel...")
+    start = time.time()
+
     # Query all models in parallel
     responses = await query_models_parallel(COUNCIL_MODELS, messages)
+
+    elapsed = time.time() - start
+    successful = sum(1 for r in responses.values() if r is not None)
+    print(f"[Council] === STAGE 1 COMPLETE: {successful}/{len(COUNCIL_MODELS)} models responded ({elapsed:.1f}s)")
 
     # Format results
     stage1_results = []
@@ -94,8 +102,15 @@ Now provide your evaluation and ranking:"""
 
     messages = [{"role": "user", "content": ranking_prompt}]
 
+    print(f"[Council] === STAGE 2: Querying {len(COUNCIL_MODELS)} models for rankings...")
+    start = time.time()
+
     # Get rankings from all council models in parallel
     responses = await query_models_parallel(COUNCIL_MODELS, messages)
+
+    elapsed = time.time() - start
+    successful = sum(1 for r in responses.values() if r is not None)
+    print(f"[Council] === STAGE 2 COMPLETE: {successful}/{len(COUNCIL_MODELS)} models responded ({elapsed:.1f}s)")
 
     # Format results
     stage2_results = []
@@ -158,8 +173,13 @@ Provide a clear, well-reasoned final answer that represents the council's collec
 
     messages = [{"role": "user", "content": chairman_prompt}]
 
+    print(f"[Council] === STAGE 3: Querying chairman ({CHAIRMAN_MODEL})...")
+    start = time.time()
+
     # Query the chairman model
     response = await query_model(CHAIRMAN_MODEL, messages)
+    elapsed = time.time() - start
+    print(f"[Council] === STAGE 3 COMPLETE: {'success' if response else 'FAILED'} ({elapsed:.1f}s)")
 
     if response is None:
         # Fallback if chairman fails

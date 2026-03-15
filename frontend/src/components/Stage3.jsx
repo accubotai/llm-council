@@ -14,7 +14,12 @@ export default function Stage3({ finalResponse }) {
           Chairman: {finalResponse.model.split('/')[1] || finalResponse.model}
         </div>
         <div className="final-text markdown-content">
-          <ReactMarkdown>{finalResponse.response}</ReactMarkdown>
+          {finalResponse.response ? (
+            <ReactMarkdown>{finalResponse.response}</ReactMarkdown>
+          ) : (
+            <span className="waiting-text">Synthesizing...</span>
+          )}
+          {finalResponse.streaming && <span className="cursor-blink">|</span>}
         </div>
       </div>
     </div>

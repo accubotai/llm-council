@@ -2,14 +2,36 @@
  * API client for the LLM Council backend.
  */
 
-const API_BASE = 'http://localhost:8001';
+const API_BASE = import.meta.env.VITE_API_BASE || '';
 
 export const api = {
+  async checkAuth() {
+    const response = await fetch(`${API_BASE}/api/auth/status`, { credentials: 'include' });
+    return response.json();
+  },
+
+  async login(username, password) {
+    const response = await fetch(`${API_BASE}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ username, password }),
+    });
+    if (!response.ok) {
+      throw new Error('Invalid credentials');
+    }
+    return response.json();
+  },
+
+  async logout() {
+    await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+  },
+
   /**
    * List all conversations.
    */
   async listConversations() {
-    const response = await fetch(`${API_BASE}/api/conversations`);
+    const response = await fetch(`${API_BASE}/api/conversations`, { credentials: 'include' });
     if (!response.ok) {
       throw new Error('Failed to list conversations');
     }
@@ -25,6 +47,7 @@ export const api = {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify({}),
     });
     if (!response.ok) {
@@ -38,7 +61,8 @@ export const api = {
    */
   async getConversation(conversationId) {
     const response = await fetch(
-      `${API_BASE}/api/conversations/${conversationId}`
+      `${API_BASE}/api/conversations/${conversationId}`,
+      { credentials: 'include' }
     );
     if (!response.ok) {
       throw new Error('Failed to get conversation');
@@ -57,6 +81,7 @@ export const api = {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({ content }),
       }
     );
@@ -81,6 +106,7 @@ export const api = {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({ content }),
       }
     );
@@ -104,6 +130,44 @@ export const api = {
           const data = line.slice(6);
           try {
             const event = JSON.parse(data);
+            onEvent(event.type, event);
+          } catch (e) {
+            console.error('Failed to parse SSE event:', e);
+          }
+        }
+      }
+    }
+  },
+
+  async sendFollowUpStream(conversationId, content, model, onEvent) {
+    const response = await fetch(
+      `${API_BASE}/api/conversations/${conversationId}/followup/stream`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ content, model }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to send follow-up');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+      const lines = chunk.split('\n');
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const event = JSON.parse(line.slice(6));
             onEvent(event.type, event);
           } catch (e) {
             console.error('Failed to parse SSE event:', e);

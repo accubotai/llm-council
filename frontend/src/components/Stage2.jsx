@@ -6,7 +6,6 @@ function deAnonymizeText(text, labelToModel) {
   if (!labelToModel) return text;
 
   let result = text;
-  // Replace each "Response X" with the actual model name
   Object.entries(labelToModel).forEach(([label, model]) => {
     const modelShortName = model.split('/')[1] || model;
     result = result.replace(new RegExp(label, 'g'), `**${modelShortName}**`);
@@ -35,9 +34,10 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
         {rankings.map((rank, index) => (
           <button
             key={index}
-            className={`tab ${activeTab === index ? 'active' : ''}`}
+            className={`tab ${activeTab === index ? 'active' : ''} ${rank.streaming ? 'streaming' : ''}`}
             onClick={() => setActiveTab(index)}
           >
+            {rank.streaming && <span className="streaming-dot" />}
             {rank.model.split('/')[1] || rank.model}
           </button>
         ))}
@@ -48,12 +48,18 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
           {rankings[activeTab].model}
         </div>
         <div className="ranking-content markdown-content">
-          <ReactMarkdown>
-            {deAnonymizeText(rankings[activeTab].ranking, labelToModel)}
-          </ReactMarkdown>
+          {rankings[activeTab].ranking ? (
+            <ReactMarkdown>
+              {deAnonymizeText(rankings[activeTab].ranking, labelToModel)}
+            </ReactMarkdown>
+          ) : (
+            <span className="waiting-text">Waiting for evaluation...</span>
+          )}
+          {rankings[activeTab].streaming && <span className="cursor-blink">|</span>}
         </div>
 
-        {rankings[activeTab].parsed_ranking &&
+        {!rankings[activeTab].streaming &&
+         rankings[activeTab].parsed_ranking &&
          rankings[activeTab].parsed_ranking.length > 0 && (
           <div className="parsed-ranking">
             <strong>Extracted Ranking:</strong>

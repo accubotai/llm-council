@@ -156,6 +156,63 @@ def add_assistant_message(
     save_conversation(conversation)
 
 
+def upsert_assistant_message(
+    conversation_id: str,
+    stage1: Optional[List[Dict[str, Any]]] = None,
+    stage2: Optional[List[Dict[str, Any]]] = None,
+    stage3: Optional[Dict[str, Any]] = None
+):
+    """
+    Create or update the last assistant message incrementally.
+    If the last message is already an assistant message, update it.
+    Otherwise, append a new one.
+    """
+    conversation = get_conversation(conversation_id)
+    if conversation is None:
+        raise ValueError(f"Conversation {conversation_id} not found")
+
+    messages = conversation["messages"]
+    if messages and messages[-1].get("role") == "assistant":
+        msg = messages[-1]
+    else:
+        msg = {"role": "assistant", "stage1": [], "stage2": [], "stage3": None}
+        messages.append(msg)
+
+    if stage1 is not None:
+        msg["stage1"] = stage1
+    if stage2 is not None:
+        msg["stage2"] = stage2
+    if stage3 is not None:
+        msg["stage3"] = stage3
+
+    save_conversation(conversation)
+
+
+def add_followup_message(conversation_id: str, role: str, content: str, model: str = None):
+    """Add a follow-up message (user or assistant) to a conversation."""
+    conversation = get_conversation(conversation_id)
+    if conversation is None:
+        raise ValueError(f"Conversation {conversation_id} not found")
+
+    msg = {"role": role, "content": content, "followup": True}
+    if model:
+        msg["model"] = model
+    conversation["messages"].append(msg)
+    save_conversation(conversation)
+
+
+def update_followup_message(conversation_id: str, content: str):
+    """Update the last follow-up assistant message content."""
+    conversation = get_conversation(conversation_id)
+    if conversation is None:
+        raise ValueError(f"Conversation {conversation_id} not found")
+
+    messages = conversation["messages"]
+    if messages and messages[-1].get("followup") and messages[-1].get("role") == "assistant":
+        messages[-1]["content"] = content
+        save_conversation(conversation)
+
+
 def update_conversation_title(conversation_id: str, title: str):
     """
     Update the title of a conversation.
